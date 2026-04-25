@@ -1,4 +1,4 @@
-# These are _.bat_ commands. Windows users can download them and use them directly in the CMD window.
+# These are `.bat` commands. Windows users can download them and use them directly in the CMD window.
 ## Usage
 - Install [FFmpeg](https://ffmpeg.org/). If already installed, proceed to the next step.
 - Double-click the _.bat_ file.

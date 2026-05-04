@@ -2,7 +2,7 @@
 
 A pure frontend audio spectrum visualization and video generation tool that runs directly in the browser. No installation required.
 
----
+
 English Introduction | [中文介绍](https://github.com/iUrsa/Go-Tools/blob/main/NormSpect%20Studio/README_ZH.md)
 ## Features
 

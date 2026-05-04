@@ -49,8 +49,6 @@ Canvas 2D | Custom spectrum rendering (bar and curve)
 MediaRecorder API | Audio-video synthesis and recording
 Normal distribution algorithm | Spectrum energy centered for enhanced visual impact
 
----
-
 ## Getting Started
 
 ### Step 1: Import Audio

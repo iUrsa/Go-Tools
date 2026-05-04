@@ -2,7 +2,7 @@
 
 一款纯前端音频频谱可视化与视频生成工具，可直接在浏览器中运行，无需安装任何软件。
 
-
+中文介绍 | [English Introduction](https://github.com/iUrsa/Go-Tools/blob/main/NormSpect%20Studio/README.md)
 ## 功能介绍
 
 - 导入音频文件，实时生成动态频谱动画

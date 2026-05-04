@@ -55,7 +55,7 @@ Normal distribution algorithm | Spectrum energy centered for enhanced visual imp
 
 ### Step 1: Import Audio
 
-1. Click the "Import Audio" button in the left panel
+1. Click the **Import Audio** button in the left panel
 2. Select a local audio file (supports mp3, wav, ogg, and other common formats)
 3. Once loaded, the file name and duration will be displayed below, and a static spectrum will appear in the preview area
 
@@ -74,10 +74,10 @@ Normal distribution algorithm | Spectrum energy centered for enhanced visual imp
 
 ### Step 4: Live Preview
 
-1. Click the "Play" button on the right to start audio playback
+1. Click the **Play** button on the right to start audio playback
 2. The spectrum will animate in real-time with the music
 3. Use the progress bar to drag or click to jump to any position
-4. Use "Pause" and "Stop" to control playback
+4. Use **Pause** and **Stop** to control playback
 
 ### Step 5: Generate and Export Video
 
@@ -85,9 +85,9 @@ Normal distribution algorithm | Spectrum energy centered for enhanced visual imp
 2. Choose audio output mode:
    - Silent Render: No sound output during generation
    - Live Monitor: Hear audio during generation
-3. Click the "Generate Full-length Video" button
+3. Click the **Generate Full-length Video** button
 4. Wait for the progress bar to complete (duration equals full audio length)
-5. When finished, click "Download Video" to save the WEBM file
+5. When finished, click **Download Video** to save the WEBM file
 
 ### Step 6: Format Conversion (Optional)
 

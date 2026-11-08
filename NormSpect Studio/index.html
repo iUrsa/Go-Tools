@@ -4,14 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title data-i18n="title">正态频谱工坊 | 音视频合成 | 渐变边框 | 静默/监听</title>
+    <!-- 引入轻量级音频标签解析库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.7/jsmediatags.min.js"></script>
     <style>
         * { box-sizing: border-box; transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease; }
         :root {
-            --bg-page: #eef2ff; --bg-panel: rgba(245, 245, 255, 0.92); --bg-card: #ffffff;
+            --bg-page: #eef2ff; --bg-panel: rgba(255,255,255,0.97); --bg-card: rgba(255,255,255,0.99);
             --border-light: rgba(0,0,0,0.1); --text-primary: #1a1f2e; --text-secondary: #4f5b7a;
             --accent: #6247e0; --btn-bg: #e9e9f0; --shadow: rgba(0,0,0,0.1);
             --canvas-bg: #f8faff; --warning-bg: #fff4e0; --warning-border: #e6a017;
             --switch-bg: #d0d5e8; --switch-knob: #6247e0;
+            --border-strong: rgba(0,0,0,0.22);
         }
         body.dark {
             --bg-page: #0b0e1a; --bg-panel: rgba(18, 22, 45, 0.85); --bg-card: #0f1228;
@@ -19,27 +22,80 @@
             --accent: #8b74ff; --btn-bg: #1e213a; --shadow: rgba(0,0,0,0.5);
             --canvas-bg: #0a0c18; --warning-bg: rgba(255, 200, 100, 0.12); --warning-border: #f0b37b;
             --switch-bg: #2a2e48; --switch-knob: #8b74ff;
+            --border-strong: rgba(255,255,255,0.28);
         }
-        body { background: var(--bg-page); font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; margin: 0; padding: 30px 20px; min-height: 100vh; }
+        body { background: var(--bg-page); color: var(--text-primary); font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; margin: 0; padding: 30px 20px; min-height: 100vh; }
+
+        /* ★ 明亮主题：动态三色渐变（紫 / 青 / 玫粉三团缓慢漂移，暗黑主题不启用） */
+        .bg-aurora {
+            position: fixed; inset: -12%; z-index: -1; overflow: hidden; pointer-events: none;
+            background:
+                radial-gradient(38% 44% at 10% 16%, #6a5cff 0%, rgba(106, 92, 255, 0) 62%),
+                radial-gradient(40% 46% at 90% 8%, #00c8ff 0%, rgba(0, 200, 255, 0) 62%),
+                radial-gradient(46% 50% at 64% 94%, #ff4d94 0%, rgba(255, 77, 148, 0) 66%),
+                linear-gradient(120deg, #eef2ff 0%, #fdf1ff 55%, #e9fbff 100%);
+            background-size: 165% 165%, 165% 165%, 165% 165%, 100% 100%;
+            background-repeat: no-repeat;
+            animation: bgDrift 12s ease-in-out infinite alternate;
+        }
+        body.dark .bg-aurora { display: none; }
+        @keyframes bgDrift {
+            0%   { background-position: 0% 0%, 100% 0%, 50% 100%, 0 0; }
+            50%  { background-position: 42% 62%, 58% 38%, 22% 36%, 0 0; }
+            100% { background-position: 100% 44%, 0% 82%, 82% 8%, 0 0; }
+        }
+
+        /* ★ 全屏动态渐变开关：开启时外壳 5%、控制面板与磁贴 15% 不透明度，渐变贯穿全屏（预览区除外） */
+        body.gradient-full:not(.dark) { --bg-panel: rgba(255,255,255,0.05); --bg-card: rgba(255,255,255,0.15); }
+
+        .gradient-toggle { display: flex; align-items: center; gap: 8px; background: var(--btn-bg); border: 1px solid var(--border-light); border-radius: 60px; padding: 7px 14px 7px 16px; cursor: pointer; color: var(--text-primary); font-size: 0.85rem; font-weight: 500; white-space: nowrap; user-select: none; }
+        .gradient-toggle .switch-track { width: 38px; height: 20px; border-radius: 20px; background: var(--switch-bg); position: relative; flex-shrink: 0; transition: background-color 0.2s ease; }
+        .gradient-toggle .switch-thumb { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25); transition: left 0.2s ease; }
+        .gradient-toggle.on .switch-track { background: var(--accent); }
+        .gradient-toggle.on .switch-thumb { left: 20px; }
+        .gradient-toggle.disabled { opacity: 0.42; cursor: not-allowed; filter: grayscale(0.7); }
+        @media (prefers-reduced-motion: reduce) { .bg-aurora { animation: none !important; } }
         .app-container { max-width: 1550px; width: 100%; margin: 0 auto; background: var(--bg-panel); backdrop-filter: blur(5px); border-radius: 2rem; box-shadow: 0 25px 45px var(--shadow); border: 1px solid var(--border-light); padding: 24px 30px 34px; }
         .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 28px; }
         .title-area h1 { font-size: 1.9rem; font-weight: 700; background: linear-gradient(135deg, var(--text-primary), var(--accent)); -webkit-background-clip: text; background-clip: text; color: transparent; margin: 0; }
         .title-area p { color: var(--text-secondary); margin: 5px 0 0; font-size: 0.85rem; }
         .controls-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .theme-toggle, .lang-toggle { background: var(--btn-bg); border-radius: 60px; padding: 8px 18px; display: flex; gap: 8px; align-items: center; cursor: pointer; border: 1px solid var(--border-light); font-weight: 500; color: var(--text-primary); font-size: 0.85rem; white-space: nowrap; }
-        .two-columns { display: flex; flex-wrap: wrap; gap: 28px; }
-        .control-panel { flex: 1.2; min-width: 310px; background: var(--bg-card); border-radius: 1.5rem; padding: 22px; border: 1px solid var(--border-light); }
-        .preview-area { flex: 2; min-width: 560px; background: var(--canvas-bg); border-radius: 1.5rem; overflow: hidden; border: 1px solid var(--border-light); display: flex; flex-direction: column; }
-        .setting-group { margin-bottom: 1.5rem; }
-        .setting-group label { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; font-size: 0.85rem; }
+        
+        /* 左右比例 1:3 */
+        .two-columns { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+        .left-column { flex: 1; min-width: 310px; display: flex; flex-direction: column; gap: 16px; }
+        .control-panel { background: var(--bg-card); border-radius: 1.5rem; padding: 22px; border: 1px solid var(--border-strong); display: flex; flex-direction: column; backdrop-filter: blur(16px) saturate(1.25); -webkit-backdrop-filter: blur(16px) saturate(1.25); }
+        .preview-area { flex: 3; min-width: 560px; background: var(--canvas-bg); border-radius: 1.5rem; overflow: hidden; border: 1px solid var(--border-light); display: flex; flex-direction: column; position: sticky; top: 30px; }
+
+        /* ★ 预览区必应壁纸幻灯片（仅明亮主题） */
+        .preview-slideshow { position: absolute; inset: 0; z-index: 0; background: var(--canvas-bg); }
+        .preview-slideshow .slide { position: absolute; inset: 0; background-size: cover; background-position: center; background-repeat: no-repeat; opacity: 0; transition: opacity 2s ease; }
+        .preview-slideshow .slide.active { opacity: 1; }
+        .preview-slideshow::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 132px; background: linear-gradient(to top, rgba(255,255,255,0.94) 30%, rgba(255,255,255,0)); pointer-events: none; }
+        /* 暗黑主题：同样播放幻灯片，但压暗亮度避免刺眼 */
+        body.dark .preview-slideshow .slide { filter: brightness(0.4) saturate(0.82) contrast(0.96); }
+        body.dark .preview-slideshow::after { background: linear-gradient(to top, rgba(10,12,24,0.92) 30%, rgba(10,12,24,0)); }
+        .preview-area > *:not(.preview-slideshow) { position: relative; z-index: 1; }
+
+        details.setting-group { margin-bottom: 1.2rem; border-bottom: 1px solid var(--border-light); padding-bottom: 12px; }
+        details.setting-group:last-child { border-bottom: none; margin-bottom: 0; }
+        details.setting-group summary { display: flex; justify-content: space-between; align-items: center; font-weight: 600; color: var(--text-primary); font-size: 0.95rem; cursor: pointer; padding: 8px 0; outline: none; list-style: none; user-select: none; }
+        details.setting-group summary::-webkit-details-marker { display: none; }
+        details.setting-group summary::after { content: '▼'; font-size: 0.7rem; color: var(--text-secondary); transition: transform 0.3s ease; }
+        details.setting-group[open] summary::after { transform: rotate(180deg); }
+        .setting-content { padding-top: 12px; }
+
         input, select, button { background: var(--bg-page); border: 1px solid var(--border-light); border-radius: 14px; padding: 10px 14px; color: var(--text-primary); font-size: 0.9rem; width: 100%; outline: none; }
         button { background: var(--btn-bg); cursor: pointer; font-weight: 600; transition: 0.15s; width: auto; }
         button.primary { background: linear-gradient(95deg, var(--accent), #4f3bc2); color: white; border: none; box-shadow: 0 4px 12px rgba(98, 71, 224, 0.3); }
         button.primary:hover { transform: translateY(-2px); filter: brightness(1.05); }
-        .gradient-colors { background: var(--bg-page); padding: 12px; border-radius: 20px; }
-        .gradient-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
-        .gradient-row span { width: 45px; font-size: 0.75rem; color: var(--text-secondary);}
-        .gradient-row input[type="color"] { width: 50px; height: 36px; padding: 2px; }
+        
+        .gradient-colors { background: var(--bg-page); padding: 12px 8px; border-radius: 20px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .gradient-row { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+        .gradient-row span { font-size: 0.75rem; color: var(--text-secondary); margin: 0; }
+        .gradient-row input[type="color"] { width: 40px; height: 30px; padding: 2px; cursor: pointer; border-radius: 8px; }
+
         .opacity-row { display: flex; gap: 12px; align-items: center;}
         .opacity-row input[type="range"] { flex: 2; }
         .opacity-row input[type="number"] { flex: 0.8; min-width: 70px;}
@@ -55,62 +111,147 @@
         .format-tip code { background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 8px; font-family: monospace; }
         canvas { width: 100%; height: auto; border-radius: 20px; background: transparent; display: block; }
         .preview-label { padding: 12px 20px; border-top: 1px solid var(--border-light); font-size: 0.75rem; color: var(--text-secondary); }
-        .audio-controls { display: flex; gap: 14px; padding: 16px 20px 22px; flex-wrap: wrap; align-items: center; }
-        hr { border-color: var(--border-light); margin: 18px 0; }
+        .audio-controls { display: flex; gap: 14px; padding: 16px 20px 22px; flex-wrap: wrap; align-items: center; justify-content: center; }
+        .audio-controls button { box-shadow: 0 4px 14px var(--shadow); white-space: nowrap; }
+        hr { border-color: var(--border-light); margin: 18px 0; display: none; }
         .download-btn { background: #2c7a4d; color: white; margin-top: 10px; }
         .mode-tip { font-size: 0.7rem; margin-top: 5px; color: var(--text-secondary); }
         .file-row { display: flex; gap: 10px; align-items: center; }
         .file-btn { width: auto; white-space: nowrap; }
         .file-name { color: var(--text-secondary); font-size: 0.85rem; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .seek-bar-container { display: flex; align-items: center; gap: 12px; padding: 8px 20px; }
+        .seek-bar-container input[type="range"] { flex: 1; height: 6px; -webkit-appearance: none; appearance: none; background: var(--switch-bg); border-radius: 3px; outline: none; cursor: pointer; padding: 0; border: none; }
+        .seek-bar-container input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 6px rgba(0,0,0,0.2); border: 2px solid #fff; transition: 0.1s; }
+        .seek-bar-container input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; }
+        .time-display { font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap; min-width: 95px; text-align: right; }
 
-        /* 播放进度条区域 */
-        .seek-bar-container {
+        /* ★ 正在播放歌曲磁贴（独立于控制面板） */
+        .now-playing-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 12px;
             display: flex;
+            gap: 14px;
             align-items: center;
-            gap: 12px;
-            padding: 8px 20px;
+            border: 1px solid var(--border-strong);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+            backdrop-filter: blur(16px) saturate(1.25);
+            -webkit-backdrop-filter: blur(16px) saturate(1.25);
         }
-        .seek-bar-container input[type="range"] {
+        /* ★ 联系方式磁贴（歌曲信息下方，三图标横向等距居中，仅图标无文字） */
+        .contact-tile {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-evenly;
+            align-items: center;
+            border: 1px solid var(--border-strong);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+            backdrop-filter: blur(16px) saturate(1.25);
+            -webkit-backdrop-filter: blur(16px) saturate(1.25);
+        }
+        .contact-icon {
+            position: relative;
+            width: 42px; height: 42px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 12px;
+            color: var(--text-secondary);
+            transition: transform .2s ease, color .2s ease, background-color .2s ease;
+        }
+        .contact-icon:hover { transform: translateY(-2px); background: var(--bg-panel); }
+        .contact-icon svg { width: 24px; height: 24px; display: block; }
+        .contact-icon.github:hover { color: #181717; }
+        body.dark .contact-icon.github:hover { color: #ffffff; }
+        .contact-icon.telegram:hover { color: #229ED9; }
+        /* 支付宝收款码悬停弹层（保持白底，方便扫码） */
+        .qr-pop {
+            position: absolute;
+            bottom: calc(100% + 12px);
+            left: 50%;
+            transform: translateX(-50%) translateY(8px);
+            width: 150px;
+            padding: 8px;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .22s ease, transform .22s ease;
+            z-index: 20;
+        }
+        .qr-pop::after {
+            content: '';
+            position: absolute;
+            top: 100%; left: 50%;
+            transform: translateX(-50%);
+            border: 7px solid transparent;
+            border-top-color: #ffffff;
+        }
+        .contact-icon.alipay:hover .qr-pop,
+        .contact-icon.alipay:focus-within .qr-pop {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+            pointer-events: auto;
+        }
+        .qr-pop img { width: 100%; border-radius: 8px; display: block; }
+        .qr-hint { display: block; font-size: 11px; color: #999999; text-align: center; padding: 6px 0 2px; }
+        .cover-container {
+            width: 60px;
+            height: 60px;
+            border-radius: 10px;
+            overflow: hidden;
+            background: var(--border-light);
+            flex-shrink: 0;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        .cover-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .info-container {
             flex: 1;
-            height: 6px;
-            -webkit-appearance: none;
-            appearance: none;
-            background: var(--switch-bg);
-            border-radius: 3px;
-            outline: none;
-            cursor: pointer;
-            padding: 0;
-            border: none;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 3px;
         }
-        .seek-bar-container input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: var(--accent);
-            box-shadow: 0 0 6px rgba(0,0,0,0.2);
-            border: 2px solid #fff;
-            transition: 0.1s;
+        .song-title {
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
-        .seek-bar-container input[type="range"]::-moz-range-thumb {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: var(--accent);
-            border: 2px solid #fff;
-        }
-        .time-display {
+        .song-artist {
             font-size: 0.8rem;
             color: var(--text-secondary);
             white-space: nowrap;
-            min-width: 95px;
-            text-align: right;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
-        @media (max-width: 1000px) { .two-columns { flex-direction: column; } .preview-area { min-width: auto; } }
+        .song-meta {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            opacity: 0.7;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        @media (max-width: 1000px) {
+            .two-columns { flex-direction: column; }
+            .preview-area { min-width: auto; position: static; }
+        }
     </style>
 </head>
 <body>
+<div class="bg-aurora" id="bgAurora" aria-hidden="true"></div>
 <div class="app-container">
     <div class="header">
         <div class="title-area">
@@ -118,126 +259,194 @@
             <p data-i18n="subtitle">正态居中 | 条状/曲线 | 渐变边框 | 音视频合成 | 监听/静默</p>
         </div>
         <div class="controls-row">
+            <div class="gradient-toggle on" id="gradientToggle" title="明亮主题专用：全屏动态渐变">
+                <span>✨</span><span data-i18n="gradient_full">全屏渐变</span>
+                <span class="switch-track"><span class="switch-thumb"></span></span>
+            </div>
             <div class="lang-toggle" id="langToggle"><span>🌐</span> <span data-i18n="lang_switch">English</span></div>
             <div class="theme-toggle" id="themeToggle"><span>☀️</span> <span data-i18n="theme_switch">暗黑模式</span></div>
         </div>
     </div>
 
     <div class="two-columns">
+        <div class="left-column">
         <div class="control-panel">
-            <div class="setting-group">
-                <label data-i18n="import_audio">🎵 导入音频</label>
-                <input type="file" id="audioFileInput" accept="audio/*" hidden>
-                <div class="file-row">
-                    <button id="customFileBtn" class="file-btn">📁 <span data-i18n="choose_file">导入音频</span></button>
-                    <span id="selectedFileName" class="file-name" data-i18n="no_file_selected">未选择文件</span>
+            <details class="setting-group">
+                <summary data-i18n="section_import">📁 素材导入</summary>
+                <div class="setting-content">
+                    <div style="margin-bottom: 12px;">
+                        <label style="font-size: 0.85rem; font-weight: 500; margin-bottom: 4px; display: block;" data-i18n="import_audio">🎵 导入音频</label>
+                        <input type="file" id="audioFileInput" accept="audio/*" hidden>
+                        <div class="file-row">
+                            <button id="customFileBtn" class="file-btn">📁 <span data-i18n="choose_file">选择</span></button>
+                            <span id="selectedFileName" class="file-name" data-i18n="no_file_selected">未选择文件</span>
+                        </div>
+                        <div id="fileInfo" class="status-text" style="text-align: left; margin-top:4px;" data-i18n="not_loaded">⚡ 未加载</div>
+                    </div>
+                    <div>
+                        <label style="font-size: 0.85rem; font-weight: 500; margin-bottom: 4px; display: block;" data-i18n="lyrics_section">📝 导入歌词</label>
+                        <input type="file" id="lyricsFileInput" accept=".lrc,.srt,.txt" hidden>
+                        <div class="file-row">
+                            <button id="lyricsFileBtn" class="file-btn">📄 <span data-i18n="import_lyrics">选择</span></button>
+                            <span id="lyricsFileName" class="file-name" data-i18n="no_lyrics">未导入歌词</span>
+                        </div>
+                    </div>
                 </div>
-                <div id="fileInfo" class="status-text" style="margin-top:6px;" data-i18n="not_loaded">⚡ 未加载</div>
-            </div>
+            </details>
 
-            <div class="setting-group">
-                <label data-i18n="gradient_colors">🎨 四色渐变 (从左到右)</label>
-                <div class="gradient-colors">
-                    <div class="gradient-row"><span data-i18n="color1">色1</span><input type="color" id="grad1" value="#6c5ce7"></div>
-                    <div class="gradient-row"><span data-i18n="color2">色2</span><input type="color" id="grad2" value="#00cec9"></div>
-                    <div class="gradient-row"><span data-i18n="color3">色3</span><input type="color" id="grad3" value="#fdcb6e"></div>
-                    <div class="gradient-row"><span data-i18n="color4">色4</span><input type="color" id="grad4" value="#ff7675"></div>
+            <details class="setting-group">
+                <summary data-i18n="section_visual">🎨 频谱视觉</summary>
+                <div class="setting-content">
+                    <div class="gradient-colors">
+                        <div class="gradient-row"><input type="color" id="grad1" value="#6c5ce7"><span data-i18n="color1">色1</span></div>
+                        <div class="gradient-row"><input type="color" id="grad2" value="#00cec9"><span data-i18n="color2">色2</span></div>
+                        <div class="gradient-row"><input type="color" id="grad3" value="#fdcb6e"><span data-i18n="color3">色3</span></div>
+                        <div class="gradient-row"><input type="color" id="grad4" value="#ff7675"><span data-i18n="color4">色4</span></div>
+                    </div>
+                    <div style="margin-top:12px;">
+                        <div class="shape-switch" id="shapeSwitch">
+                            <div class="shape-opt active" data-shape="bar">▦ <span data-i18n="shape_bar">条状</span></div>
+                            <div class="shape-opt" data-shape="curve">〰 <span data-i18n="shape_curve">曲线</span></div>
+                        </div>
+                    </div>
+                    <div style="margin-top:12px;">
+                        <div class="style-switch" id="styleSwitch">
+                            <div class="style-opt active" data-style="solid"><span data-i18n="style_solid">实心</span></div>
+                            <div class="style-opt" data-style="hollow"><span data-i18n="style_hollow">空心</span></div>
+                            <div class="style-opt" data-style="semi"><span data-i18n="style_semi">半透明</span></div>
+                        </div>
+                    </div>
+                    <div id="borderWidthControl" style="margin-top:12px;">
+                        <div class="slider-label"><span data-i18n="border_width">边框宽度</span>: <span id="borderWidthVal">6</span> px</div>
+                        <input type="range" id="borderWidthSlider" min="1" max="20" value="6">
+                    </div>
+                    <div id="innerOpacityControl" style="margin-top:12px; display:none;">
+                        <div class="slider-label"><span data-i18n="inner_opacity">内部透明度</span>: <span id="innerOpacityVal">25</span>%</div>
+                        <input type="range" id="innerOpacitySlider" min="0" max="100" value="25">
+                    </div>
+                    <div style="margin-top:12px;">
+                        <div class="slider-label"><span data-i18n="bar_count">条数</span></div>
+                        <select id="barCountSelect">
+                            <option value="48">48 <span data-i18n="bars">条</span></option>
+                            <option value="64">64 <span data-i18n="bars">条</span></option>
+                            <option value="96" selected>96 <span data-i18n="bars">条</span><span data-i18n="recommended"> (推荐)</span></option>
+                            <option value="128">128 <span data-i18n="bars">条</span></option>
+                        </select>
+                    </div>
                 </div>
-            </div>
+            </details>
 
-            <div class="setting-group">
-                <label data-i18n="spectrum_shape">📐 频谱形状</label>
-                <div class="shape-switch" id="shapeSwitch">
-                    <div class="shape-opt active" data-shape="bar">▦ <span data-i18n="shape_bar">条状柱形</span></div>
-                    <div class="shape-opt" data-shape="curve">〰 <span data-i18n="shape_curve">平滑曲线</span></div>
-                </div>
-            </div>
+            <details class="setting-group">
+                <summary data-i18n="section_lyrics_effects">✨ 歌词与特效</summary>
+                <div class="setting-content">
+                    <div class="slider-label" style="margin-top: 0;"><span data-i18n="lyric_font">歌词字体</span></div>
+                    <select id="lyricFontSelect" style="margin-top: 4px; margin-bottom: 12px;">
+                        <option value="sans" data-i18n="font_sans">现代黑体 (默认)</option>
+                        <option value="serif" data-i18n="font_serif">优雅宋体</option>
+                        <option value="cursive" data-i18n="font_cursive">手写楷体</option>
+                        <option value="round" data-i18n="font_round">可爱圆体</option>
+                        <option value="impact" data-i18n="font_impact">海报粗体 (英文佳)</option>
+                        <option value="times" data-i18n="font_times">Times New Roman (英文最佳)</option>
+                    </select>
 
-            <div class="setting-group">
-                <label data-i18n="fill_style">✨ 渐变应用方式</label>
-                <div class="style-switch" id="styleSwitch">
-                    <div class="style-opt active" data-style="solid"><span data-i18n="style_solid">实心填充</span></div>
-                    <div class="style-opt" data-style="hollow"><span data-i18n="style_hollow">空心边框</span></div>
-                    <div class="style-opt" data-style="semi"><span data-i18n="style_semi">边框+半透明</span></div>
+                    <div class="slider-label"><span data-i18n="font_size">字号</span>: <span id="lyricSizeVal">8.5</span>%</div>
+                    <input type="range" id="lyricSizeSlider" min="3" max="20" step="0.5" value="8.5">
+                    <div class="opacity-row" style="margin-top:12px;">
+                        <select id="lyricPosSelect" style="flex:2;">
+                            <option value="top" selected data-i18n="pos_top">顶部</option>
+                            <option value="bottom" data-i18n="pos_bottom">底部</option>
+                            <option value="center" data-i18n="pos_center">居中</option>
+                        </select>
+                        <input type="color" id="lyricActiveColor" value="#ffffff" style="width:50px;height:38px;padding:2px;flex:0.4;" title="高亮色">
+                        <input type="color" id="lyricStrokeColor" value="#000000" style="width:50px;height:38px;padding:2px;flex:0.4;" title="描边色">
+                    </div>
                 </div>
-                <div id="borderWidthControl" style="margin-top:12px;">
-                    <div class="slider-label"><span data-i18n="border_width">边框宽度</span>: <span id="borderWidthVal">6</span> px</div>
-                    <input type="range" id="borderWidthSlider" min="1" max="20" value="6">
-                </div>
-                <div id="innerOpacityControl" style="margin-top:12px; display:none;">
-                    <div class="slider-label"><span data-i18n="inner_opacity">内部透明度</span>: <span id="innerOpacityVal">25</span>%</div>
-                    <input type="range" id="innerOpacitySlider" min="0" max="100" value="25">
-                </div>
-            </div>
+            </details>
 
-            <div class="setting-group">
-                <label data-i18n="bar_count">📊 频谱条数 & 正态居中强度</label>
-                <select id="barCountSelect">
-                    <option value="48">48 <span data-i18n="bars">条</span></option>
-                    <option value="64">64 <span data-i18n="bars">条</span></option>
-                    <option value="96" selected>96 <span data-i18n="bars">条</span><span data-i18n="recommended"> (推荐)</span></option>
-                    <option value="128">128 <span data-i18n="bars">条</span></option>
-                </select>
-            </div>
-
-            <div class="setting-group">
-                <label data-i18n="resolution">📐 导出视频分辨率</label>
-                <select id="resolutionSelect">
-                    <option value="1920x1080">1080p (1920x1080)</option>
-                    <option value="1280x720" selected>720p (1280x720)</option>
-                    <option value="854x480">480p (854x480)</option>
-                    <option value="1080x1080"><span data-i18n="square">方形</span> 1080x1080</option>
-                    <option value="720x720"><span data-i18n="square">方形</span> 720x720</option>
-                </select>
-            </div>
-
-            <div class="setting-group">
-                <label data-i18n="bg_opacity">🌫️ 背景不透明度 (0透明~100实黑)</label>
-                <div class="opacity-row">
-                    <input type="range" id="bgOpacitySlider" min="0" max="100" value="0">
-                    <input type="number" id="bgOpacityNumber" min="0" max="100" value="0">
+            <details class="setting-group">
+                <summary data-i18n="section_export">🎬 生成导出</summary>
+                <div class="setting-content">
+                    <div style="margin-bottom: 12px;">
+                        <div class="slider-label"><span data-i18n="bg_opacity">背景不透明度</span></div>
+                        <div class="opacity-row">
+                            <input type="range" id="bgOpacitySlider" min="0" max="100" value="0">
+                            <input type="number" id="bgOpacityNumber" min="0" max="100" value="0">
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <div class="slider-label"><span data-i18n="resolution">分辨率</span></div>
+                        <select id="resolutionSelect">
+                            <option value="1920x1080">1080p (1920x1080)</option>
+                            <option value="1280x720" selected>720p (1280x720)</option>
+                            <option value="854x480">480p (854x480)</option>
+                            <option value="1080x1080"><span data-i18n="square">方形</span> 1080x1080</option>
+                            <option value="720x720"><span data-i18n="square">方形</span> 720x720</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <div class="shape-switch" id="audioModeSwitch">
+                            <div class="shape-opt active" data-mode="silent">🔇 <span data-i18n="mode_silent">静默</span></div>
+                            <div class="shape-opt" data-mode="monitor">🎧 <span data-i18n="mode_monitor">监听</span></div>
+                        </div>
+                    </div>
+                    <button id="generateVideoBtn" class="primary" data-i18n="generate_btn">🎬 生成完整时长视频</button>
+                    <div class="progress-section">
+                        <div class="progress-bar-bg"><div id="progressFill" class="progress-fill"></div></div>
+                        <div id="progressStatus" class="status-text" data-i18n="ready">准备就绪</div>
+                    </div>
+                    <div id="downloadContainer" style="display:none;">
+                        <button id="downloadVideoBtn" class="download-btn" data-i18n="download_btn">⬇️ 下载视频</button>
+                    </div>
                 </div>
-            </div>
+            </details>
 
-            <div class="setting-group">
-                <label data-i18n="effects">✨ 特效</label>
-                <div style="display:flex; gap:20px;">
-                    <label><input type="checkbox" id="peakLine" checked> <span data-i18n="peak_line">峰值线/圆点</span></label>
-                    <label><input type="checkbox" id="glowEffect"> <span data-i18n="glow_effect">发光边缘</span></label>
-                </div>
-            </div>
-            <hr>
+        </div>
 
-            <div class="setting-group">
-                <label data-i18n="audio_mode">🔊 生成时音频输出模式</label>
-                <div class="shape-switch" id="audioModeSwitch">
-                    <div class="shape-opt active" data-mode="silent">🔇 <span data-i18n="mode_silent">静默渲染</span></div>
-                    <div class="shape-opt" data-mode="monitor">🎧 <span data-i18n="mode_monitor">实时监听</span></div>
-                </div>
-                <div class="mode-tip" data-i18n="mode_tip">✅ 静默模式：生成视频时不外放声音</div>
+        <!-- ★ 歌曲信息磁贴（独立于控制面板） -->
+        <div class="now-playing-card" id="nowPlayingCard">
+            <div class="cover-container">
+                <img id="audioCover" src="" alt="Cover">
             </div>
-
-            <div class="setting-group">
-                <button id="generateVideoBtn" class="primary" data-i18n="generate_btn">🎬 生成完整时长视频 (含原声音频)</button>
-                <div class="progress-section">
-                    <div class="progress-bar-bg"><div id="progressFill" class="progress-fill"></div></div>
-                    <div id="progressStatus" class="status-text" data-i18n="ready">准备就绪</div>
-                </div>
-                <div id="downloadContainer" style="display:none;">
-                    <button id="downloadVideoBtn" class="download-btn" data-i18n="download_btn">⬇️ 下载视频 (WEBM)</button>
-                </div>
-                <div class="format-tip" data-i18n="format_tip">📌 WEBM 格式提示：若需在剪映/Premiere Pro中使用，请用 FFmpeg 转为 MP4。<br><code>ffmpeg -i input.webm -c:v libx264 -c:a aac output.mp4</code></div>
+            <div class="info-container">
+                <div class="song-title" id="songTitle">未选择文件</div>
+                <div class="song-artist" id="songArtist" data-i18n="unknown_artist">未知歌手</div>
+                <div class="song-meta" id="songMeta">--</div>
             </div>
         </div>
 
+        <!-- ★ 联系方式磁贴（仅图标，横向等距居中）
+             需要你自己填写的地方（共 3 处）：
+             ① GitHub 链接：把下方 href="YOUR_GITHUB_URL" 改为你的 GitHub 主页，例如 https://github.com/yourname
+             ② Telegram 链接：把下方 href="YOUR_TELEGRAM_URL" 改为你的 Telegram 地址，例如 https://t.me/yourname
+             ③ 支付宝收款码图片：把下方 img 的 src="YOUR_ALIPAY_QR_IMAGE" 改为你的收款码图片地址
+                （本地图片：把图片文件放到本 HTML 同目录，src 填文件名，例如 src="alipay-qr.png"；或填图床/网络图片 URL） -->
+        <div class="contact-tile">
+            <a class="contact-icon github" href="https://github.com/iUrsa" target="_blank" rel="noopener" title="GitHub" aria-label="GitHub">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+            </a>
+            <a class="contact-icon telegram" href="https://t.me/LeonardJoe" target="_blank" rel="noopener" title="Telegram" aria-label="Telegram">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+            </a>
+            <span class="contact-icon alipay" title="支付宝" aria-label="支付宝收款码">
+                <svg viewBox="0 0 24 24"><rect x="1" y="1" width="22" height="22" rx="5.5" fill="#1677FF"/><text x="12" y="16.8" font-size="12.5" font-weight="700" text-anchor="middle" fill="#ffffff" font-family="'PingFang SC','Microsoft YaHei',sans-serif">支</text></svg>
+                <span class="qr-pop">
+                    <img src="YOUR_ALIPAY_QR_IMAGE" alt="支付宝收款码" onerror="this.style.display='none'">
+                    <span class="qr-hint">功能不可用</span>
+                </span>
+            </span>
+        </div>
+        </div>
+
         <div class="preview-area">
+            <div class="preview-slideshow" id="previewSlideshow" aria-hidden="true">
+                <div class="slide"></div>
+                <div class="slide"></div>
+            </div>
             <div style="padding:20px 20px 8px 20px;"><canvas id="spectrumCanvas" width="900" height="340" style="width:100%;"></canvas></div>
-            <!-- 播放进度条 -->
             <div class="seek-bar-container">
                 <input type="range" id="seekBar" min="0" max="100" step="0.1" value="0" disabled>
                 <span class="time-display" id="timeDisplay">0:00 / 0:00</span>
             </div>
-            <div class="preview-label" data-i18n="preview_label">🎧 实时预览：支持条状/曲线 | 渐变边框 | 峰值圆点标记</div>
             <div class="audio-controls">
                 <button id="playBtn">▶ <span data-i18n="play">播放</span></button>
                 <button id="pauseBtn">⏸️ <span data-i18n="pause">暂停</span></button>
@@ -252,51 +461,61 @@
     const i18n = {
         zh: {
             title:'🎧 正态频谱工坊 · 旗舰版', subtitle:'正态居中 | 条状/曲线 | 渐变边框 | 音视频合成 | 监听/静默',
-            lang_switch:'English', theme_switch:'暗黑模式', light_theme:'明亮模式',
-            import_audio:'🎵 导入音频', choose_file:'导入音频', no_file_selected:'未选择文件',
+            lang_switch:'English', theme_switch:'暗黑模式', light_theme:'明亮模式', gradient_full:'全屏渐变',
+            gradient_enabled:'明亮主题：点击切换全屏动态渐变', gradient_disabled:'暗黑主题下不可用',
+            section_import:'📁 素材导入', section_visual:'🎨 频谱视觉', section_lyrics_effects:'✨ 歌词与特效', section_export:'🎬 生成导出',
+            import_audio:'🎵 导入音频', choose_file:'选择', no_file_selected:'未选择文件',
             not_loaded:'⚡ 未加载', loading:'加载中', loaded:'✅ {name} ({duration}秒)',
-            gradient_colors:'🎨 四色渐变 (从左到右)', color1:'色1', color2:'色2', color3:'色3', color4:'色4',
-            spectrum_shape:'📐 频谱形状', shape_bar:'条状柱形', shape_curve:'平滑曲线',
-            fill_style:'✨ 渐变应用方式', style_solid:'实心填充', style_hollow:'空心边框', style_semi:'边框+半透明',
+            gradient_colors:'🎨 四色渐变', color1:'色1', color2:'色2', color3:'色3', color4:'色4',
+            spectrum_shape:'📐 频谱形状', shape_bar:'条状', shape_curve:'曲线',
+            fill_style:'✨ 渐变应用', style_solid:'实心', style_hollow:'空心', style_semi:'半透明',
             border_width:'边框宽度', inner_opacity:'内部透明度',
-            bar_count:'📊 频谱条数 & 正态居中强度', bars:'条', recommended:' (推荐)',
-            resolution:'📐 导出视频分辨率', square:'方形',
-            bg_opacity:'🌫️ 背景不透明度 (0透明~100实黑)',
-            effects:'✨ 特效', peak_line:'峰值线/圆点', glow_effect:'发光边缘',
-            audio_mode:'🔊 生成时音频输出模式', mode_silent:'静默渲染', mode_monitor:'实时监听',
+            bar_count:'条数', bars:'条', recommended:' (推荐)',
+            resolution:'分辨率', square:'方形',
+            bg_opacity:'背景不透明度',
+            audio_mode:'🔊 音频模式', mode_silent:'静默', mode_monitor:'监听',
             mode_tip:'✅ 静默模式：生成视频时不外放声音',
-            generate_btn:'🎬 生成完整时长视频 (含原声音频)', ready:'准备就绪',
-            download_btn:'⬇️ 下载视频 (WEBM)',
-            format_tip:'📌 WEBM 格式提示：若需在剪映/Premiere Pro中使用，请用 FFmpeg 转为 MP4。<br><code>ffmpeg -i input.webm -c:v libx264 -c:a aac output.mp4</code>',
-            preview_label:'🎧 实时预览：支持条状/曲线 | 渐变边框 | 峰值圆点标记',
+            generate_btn:'🎬 生成完整时长视频', ready:'准备就绪',
+            download_btn:'⬇️ 下载视频', 
+            preview_label:'🎧 实时预览：条状 / 曲线 | 四色渐变 | 歌词同步',
             play:'播放', pause:'暂停', stop:'停止', waiting_audio:'等待音频...',
             no_audio_error:'❌ 未导入音频', init_engine:'⏳ 初始化音视频合成引擎...',
-            generating:'🎬 合成中 {percent}%', complete:'✅ 音视频合成完成！点击下载',
-            download_started:'✅ 下载已开始', please_generate:'请先生成视频', please_import:'请先导入音频'
+            generating:'🎬 合成中 {percent}%', complete:'✅ 合成完成！点击下载',
+            download_started:'✅ 下载已开始', please_generate:'请先生成视频', please_import:'请先导入音频',
+            lyrics_section:'📝 导入歌词', import_lyrics:'选择', no_lyrics:'未导入',
+            lyrics_loaded:'✅ {name} ({count} 行)', lyrics_empty:'⚠️ 解析为空',
+            font_size:'字号', pos_bottom:'底部', pos_center:'居中', pos_top:'顶部',
+            lyric_font:'歌词字体', font_sans:'现代黑体 (默认)', font_serif:'优雅宋体', font_cursive:'手写楷体', font_round:'可爱圆体', font_impact:'海报粗体 (英文佳)', font_times:'Times New Roman (英文最佳)',
+            unknown_artist:'未知歌手'
         },
         en: {
             title:'🎧 Normal Spectrum Studio · Flagship', subtitle:'Normal centered | Bar/Curve | Gradient border | AV synthesis | Silent/Monitor',
-            lang_switch:'中文', theme_switch:'Dark Mode', light_theme:'Light Mode',
-            import_audio:'🎵 Import Audio', choose_file:'Import Audio', no_file_selected:'No file selected',
+            lang_switch:'中文', theme_switch:'Dark Mode', light_theme:'Light Mode', gradient_full:'Full Gradient',
+            gradient_enabled:'Light theme: toggle full-screen gradient', gradient_disabled:'Unavailable in dark mode',
+            section_import:'📁 Media Import', section_visual:'🎨 Visual Style', section_lyrics_effects:'✨ Lyrics & FX', section_export:'🎬 Export',
+            import_audio:'🎵 Import Audio', choose_file:'Choose', no_file_selected:'No file selected',
             not_loaded:'⚡ Not loaded', loading:'Loading', loaded:'✅ {name} ({duration}s)',
-            gradient_colors:'🎨 4-Color Gradient (left to right)', color1:'Color1', color2:'Color2', color3:'Color3', color4:'Color4',
-            spectrum_shape:'📐 Spectrum Shape', shape_bar:'Bar Column', shape_curve:'Smooth Curve',
-            fill_style:'✨ Gradient Application', style_solid:'Solid Fill', style_hollow:'Hollow Border', style_semi:'Border+Semi',
+            gradient_colors:'🎨 4-Color Gradient', color1:'Color1', color2:'Color2', color3:'Color3', color4:'Color4',
+            spectrum_shape:'📐 Spectrum Shape', shape_bar:'Bar', shape_curve:'Curve',
+            fill_style:'✨ Gradient Style', style_solid:'Solid', style_hollow:'Hollow', style_semi:'Semi',
             border_width:'Border Width', inner_opacity:'Inner Opacity',
-            bar_count:'📊 Bar Count & Normal Strength', bars:'bars', recommended:' (Recommended)',
-            resolution:'📐 Export Resolution', square:'Square',
-            bg_opacity:'🌫️ Background Opacity (0 transparent ~ 100 solid black)',
-            effects:'✨ Effects', peak_line:'Peak Line/Dot', glow_effect:'Glow Edge',
-            audio_mode:'🔊 Audio Output Mode During Generation', mode_silent:'Silent Render', mode_monitor:'Live Monitor',
-            mode_tip:'✅ Silent mode: No sound output during video generation',
-            generate_btn:'🎬 Generate Full-length Video (with original audio)', ready:'Ready',
-            download_btn:'⬇️ Download Video (WEBM)',
-            format_tip:'📌 WEBM Format Tip: To use in CapCut/Premiere Pro, convert to MP4 with FFmpeg.<br><code>ffmpeg -i input.webm -c:v libx264 -c:a aac output.mp4</code>',
-            preview_label:'🎧 Live Preview: Bar/Curve | Gradient Border | Peak Dot Marker',
+            bar_count:'Bar Count', bars:'bars', recommended:' (Rec)',
+            resolution:'Resolution', square:'Square',
+            bg_opacity:'Background Opacity',
+            audio_mode:'🔊 Audio Mode', mode_silent:'Silent', mode_monitor:'Monitor',
+            mode_tip:'✅ Silent mode: No audio output during render',
+            generate_btn:'🎬 Generate Video', ready:'Ready',
+            download_btn:'⬇️ Download Video', 
+            preview_label:'🎧 Live Preview: Bar / Curve | 4-Color Gradient | Synced Lyrics',
             play:'Play', pause:'Pause', stop:'Stop', waiting_audio:'Waiting for audio...',
-            no_audio_error:'❌ No audio imported', init_engine:'⏳ Initializing AV synthesis engine...',
-            generating:'🎬 Generating {percent}%', complete:'✅ AV synthesis complete! Click to download',
-            download_started:'✅ Download started', please_generate:'Please generate video first', please_import:'Please import audio first'
+            no_audio_error:'❌ No audio imported', init_engine:'⏳ Initializing...',
+            generating:'🎬 Generating {percent}%', complete:'✅ Synthesis complete!',
+            download_started:'✅ Download started', please_generate:'Generate first', please_import:'Import audio first',
+            lyrics_section:'📝 Import Lyrics', import_lyrics:'Choose', no_lyrics:'None',
+            lyrics_loaded:'✅ {name} ({count} lines)', lyrics_empty:'⚠️ Empty',
+            font_size:'Size', pos_bottom:'Bottom', pos_center:'Center', pos_top:'Top',
+            lyric_font:'Font Style', font_sans:'Sans-Serif', font_serif:'Serif', font_cursive:'Cursive', font_round:'Rounded', font_impact:'Impact', font_times:'Times New Roman (Best for English)',
+            unknown_artist:'Unknown Artist'
         }
     };
 
@@ -313,23 +532,40 @@
             if (key === 'format_tip') el.innerHTML = t(key);
             else el.textContent = t(key);
         });
-        // 更新按钮图标内的文字（span内已经data-i18n，但可能需要强制刷新）
         const fileInfo = document.getElementById('fileInfo');
         if (fileInfo && fileInfo.dataset.original) fileInfo.textContent = t(fileInfo.dataset.original);
         const progressStatus = document.getElementById('progressStatus');
         if (progressStatus && progressStatus.dataset.original) progressStatus.textContent = t(progressStatus.dataset.original);
-        // 更新主题按钮
         const isDark = document.body.classList.contains('dark');
         const themeBtn = document.getElementById('themeToggle');
         themeBtn.innerHTML = (isDark ? '<span>🌙</span> <span data-i18n="light_theme">'+t('light_theme')+'</span>' : '<span>☀️</span> <span data-i18n="theme_switch">'+t('theme_switch')+'</span>');
-        // 文件名状态
         const selectedFileName = document.getElementById('selectedFileName');
         if (selectedFileName && !audioFileInput.files[0]) selectedFileName.textContent = t('no_file_selected');
+        
+        // 只在没有加载歌曲信息时，更新“未知歌手”的翻译
+        const songArtist = document.getElementById('songArtist');
+        if (songArtist && songArtist.dataset.isDefault === 'true') {
+            songArtist.textContent = t('unknown_artist');
+        }
+
+        const lyricsFileNameEl = document.getElementById('lyricsFileName');
+        if (lyricsFileNameEl) {
+            if (lyrics.length) lyricsFileNameEl.textContent = t('lyrics_loaded', { name: lyricsRawName, count: lyrics.length });
+            else lyricsFileNameEl.textContent = t('no_lyrics');
+        }
+        
+        if (recordedBlob) {
+            const ext = mimeType.includes('mp4') ? 'MP4' : 'WEBM';
+            downloadBtn.textContent = currentLang === 'zh' ? `⬇️ 下载视频 (${ext})` : `⬇️ Download Video (${ext})`;
+        } else {
+            downloadBtn.textContent = t('download_btn');
+        }
     }
 
     function switchLanguage() {
         currentLang = currentLang === 'zh' ? 'en' : 'zh';
         updateAllTexts();
+        if (document.getElementById('gradientToggle')) applyGradientMode();
     }
 
     // DOM 元素
@@ -340,7 +576,6 @@
     const barSelect = document.getElementById('barCountSelect');
     const grad1 = document.getElementById('grad1'), grad2 = document.getElementById('grad2'), grad3 = document.getElementById('grad3'), grad4 = document.getElementById('grad4');
     const bgSlider = document.getElementById('bgOpacitySlider'), bgNumber = document.getElementById('bgOpacityNumber');
-    const peakCheck = document.getElementById('peakLine'), glowCheck = document.getElementById('glowEffect');
     const generateBtn = document.getElementById('generateVideoBtn');
     const progressFill = document.getElementById('progressFill');
     const progressStatus = document.getElementById('progressStatus');
@@ -354,6 +589,23 @@
     const playBtn = document.getElementById('playBtn'), pauseBtn = document.getElementById('pauseBtn'), stopBtn = document.getElementById('stopBtn');
     const seekBar = document.getElementById('seekBar');
     const timeDisplay = document.getElementById('timeDisplay');
+
+    // 歌词相关 DOM
+    const lyricsFileInput = document.getElementById('lyricsFileInput');
+    const lyricsFileBtn = document.getElementById('lyricsFileBtn');
+    const lyricsFileName = document.getElementById('lyricsFileName');
+    const lyricFontSelect = document.getElementById('lyricFontSelect');
+    const lyricSizeSlider = document.getElementById('lyricSizeSlider');
+    const lyricSizeVal = document.getElementById('lyricSizeVal');
+    const lyricPosSelect = document.getElementById('lyricPosSelect');
+    const lyricActiveColor = document.getElementById('lyricActiveColor');
+    const lyricStrokeColor = document.getElementById('lyricStrokeColor');
+
+    // 歌曲信息卡片 DOM
+    const audioCover = document.getElementById('audioCover');
+    const songTitle = document.getElementById('songTitle');
+    const songArtist = document.getElementById('songArtist');
+    const songMeta = document.getElementById('songMeta');
 
     const shapeOptions = document.querySelectorAll('.shape-opt[data-shape]');
     const styleOptions = document.querySelectorAll('.style-opt[data-style]');
@@ -374,17 +626,215 @@
     let isPlaying = false, pausedAt = 0;
     let animId = null;
     let barCount = 96;
-    let peakHeights = [];
     let normWeights = [];
 
-    // 格式化时间 mm:ss
+    let lyrics = [];
+    let lyricsRawText = '';
+    let lyricsRawName = '';
+    
+    const fontFamilies = {
+        sans: '"PingFang SC","Microsoft YaHei","Segoe UI",system-ui,sans-serif',
+        serif: '"Songti SC","SimSun","Times New Roman",serif',
+        cursive: '"Kaiti SC","KaiTi","STKaiti",cursive',
+        round: '"Yuanti SC","YouYuan","Varela Round",sans-serif',
+        impact: '"Impact","Arial Black",sans-serif',
+        times: '"Times New Roman",Times,Georgia,"Songti SC","SimSun",serif'
+    };
+
+    const lyricCfg = {
+        scale: 0.085, fontFamily: fontFamilies.sans,
+        weight: 700, position: 'top', padRatio: 0.12, activeColor: '#ffffff',
+        strokeColor: '#000000', strokeWidth: 4, maxWidth: 0.88
+    };
+
+    // ★ 新增：设置默认封面
+    function setDefaultCover() {
+        const defaultSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#9da3ca"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>`;
+        audioCover.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(defaultSvg)}`;
+    }
+    setDefaultCover();
+
+    // ★ 新增：解析歌曲元数据
+    function loadAudioMetadata(file) {
+        songTitle.textContent = file.name.replace(/\.[^/.]+$/, "");
+        songArtist.textContent = t('unknown_artist');
+        songArtist.dataset.isDefault = 'true';
+        songMeta.textContent = `${(file.size / (1024*1024)).toFixed(2)} MB`;
+        setDefaultCover();
+
+        if (window.jsmediatags) {
+            jsmediatags.read(file, {
+                onSuccess: function(tag) {
+                    const tags = tag.tags;
+                    if (tags.title) songTitle.textContent = tags.title;
+                    if (tags.artist) {
+                        songArtist.textContent = tags.artist;
+                        songArtist.dataset.isDefault = 'false';
+                    }
+                    
+                    let metaInfo = [];
+                    if (tags.album) metaInfo.push(tags.album);
+                    if (tags.year) metaInfo.push(tags.year);
+                    if (metaInfo.length === 0) metaInfo.push(`${(file.size / (1024*1024)).toFixed(2)} MB`);
+                    songMeta.textContent = metaInfo.join(' · ');
+
+                    if (tags.picture) {
+                        const picture = tags.picture;
+                        let base64String = "";
+                        for (let i = 0; i < picture.data.length; i++) {
+                            base64String += String.fromCharCode(picture.data[i]);
+                        }
+                        audioCover.src = `data:${picture.format};base64,${window.btoa(base64String)}`;
+                    }
+                },
+                onError: function(error) {
+                    console.warn('读取元数据失败', error);
+                }
+            });
+        }
+    }
+
+    function parseLRC(text) {
+        const out = [];
+        const stampRe = /\[(\d{1,2}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g;
+        text.split(/\r?\n/).forEach(line => {
+            const times = [];
+            let m; stampRe.lastIndex = 0;
+            while ((m = stampRe.exec(line))) {
+                const frac = m[3] ? +m[3] / Math.pow(10, m[3].length) : 0;
+                times.push(+m[1] * 60 + +m[2] + frac);
+            }
+            const content = line.replace(stampRe, '').trim();
+            if (times.length && content) times.forEach(t => out.push({ time: t, text: content }));
+        });
+        return out.sort((a, b) => a.time - b.time);
+    }
+
+    function parseSRT(text) {
+        const out = [];
+        text.replace(/\r/g, '').split(/\n{2,}/).forEach(block => {
+            const lines = block.split('\n').map(s => s.trim());
+            const idx = lines.findIndex(l => /\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->/.test(l));
+            if (idx < 0) return;
+            const tm = lines[idx].match(/(\d{2}):(\d{2}):(\d{2})[,.](\d{3})/);
+            const content = lines.slice(idx + 1).join('\n').trim();
+            if (!tm || !content) return;
+            const start = +tm[1] * 3600 + +tm[2] * 60 + +tm[3] + +tm[4] / 1000;
+            out.push({ time: start, text: content });
+        });
+        return out.sort((a, b) => a.time - b.time);
+    }
+
+    function parseTXT(text, durationSec) {
+        const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        if (!lines.length || !durationSec) return [];
+        const step = durationSec / lines.length;
+        return lines.map((t, i) => ({ time: i * step, text: t }));
+    }
+
+    function parseLyrics(text, filename, durationSec) {
+        const ext = (filename.split('.').pop() || '').toLowerCase();
+        if (ext === 'lrc') return parseLRC(text);
+        if (ext === 'srt') return parseSRT(text);
+        return parseTXT(text, durationSec);
+    }
+
+    function findLyricIndex(t) {
+        if (!lyrics.length) return -1;
+        let lo = 0, hi = lyrics.length - 1, ans = -1;
+        while (lo <= hi) {
+            const mid = (lo + hi) >> 1;
+            if (lyrics[mid].time <= t) { ans = mid; lo = mid + 1; } else hi = mid - 1;
+        }
+        return ans;
+    }
+
+    function wrapLyricText(c, text, maxWidth) {
+        const paras = text.split('\n');
+        const result = [];
+        for (const para of paras) {
+            if (c.measureText(para).width <= maxWidth) { result.push(para); continue; }
+            let line = '';
+            for (const ch of para) {
+                if (c.measureText(line + ch).width > maxWidth && line) {
+                    result.push(line); line = ch;
+                } else line += ch;
+            }
+            if (line) result.push(line);
+        }
+        return result;
+    }
+
+    function drawLyrics(c, w, h, curTime) {
+        if (!lyrics.length) return;
+        const idx = findLyricIndex(curTime);
+        if (idx < 0) return;
+
+        const fontSize = Math.max(10, Math.round(h * lyricCfg.scale));
+        const lineHeight = fontSize * 1.35;
+        const scaleFactor = h / 720;
+        const strokeW = lyricCfg.strokeWidth * scaleFactor;
+        const maxW = w * lyricCfg.maxWidth;
+
+        c.save();
+        c.font = `${lyricCfg.weight} ${fontSize}px ${lyricCfg.fontFamily}`;
+        c.textAlign = 'center';
+        c.textBaseline = 'middle';
+        c.lineJoin = 'round';
+        c.miterLimit = 2;
+
+        const pad = h * lyricCfg.padRatio;
+        let activeY;
+        if (lyricCfg.position === 'top') activeY = pad + lineHeight;
+        else if (lyricCfg.position === 'bottom') activeY = h - pad - lineHeight;
+        else activeY = h / 2;
+
+        const rows = [];
+        if (idx - 1 >= 0) rows.push({ i: idx - 1, off: -lineHeight });
+        rows.push({ i: idx, off: 0 });
+        if (idx + 1 < lyrics.length) rows.push({ i: idx + 1, off: lineHeight });
+
+        for (const { i, off } of rows) {
+            const isActive = i === idx;
+            const wrapped = wrapLyricText(c, lyrics[i].text, maxW);
+            const totalH = wrapped.length * lineHeight;
+            const startY = activeY + off - (totalH - lineHeight) / 2;
+
+            c.globalAlpha = isActive ? 1 : 0.4;
+            c.fillStyle = lyricCfg.activeColor;
+            c.shadowBlur = fontSize * 0.25;
+            c.shadowColor = 'rgba(0,0,0,0.55)';
+
+            wrapped.forEach((ln, k) => {
+                const y = startY + k * lineHeight;
+                if (strokeW > 0) {
+                    c.lineWidth = strokeW;
+                    c.strokeStyle = lyricCfg.strokeColor;
+                    c.strokeText(ln, w / 2, y);
+                }
+                c.fillText(ln, w / 2, y);
+            });
+        }
+
+        c.restore();
+    }
+
+    function getPreviewTime() {
+        if (!audioBuffer) return 0;
+        let t = pausedAt;
+        if (isPlaying && source && audioCtx) {
+            t = pausedAt + (audioCtx.currentTime - source.startedTime);
+            t = Math.min(audioBuffer.duration, Math.max(0, t));
+        }
+        return t;
+    }
+
     function formatTime(sec) {
         const m = Math.floor(sec / 60);
         const s = Math.floor(sec % 60);
         return `${m}:${s.toString().padStart(2, '0')}`;
     }
 
-    // 更新进度条UI（时间显示和滑块值）
     function updateSeekUI() {
         if (!audioBuffer) {
             seekBar.max = 100; seekBar.value = 0; seekBar.disabled = true;
@@ -393,21 +843,15 @@
         }
         seekBar.disabled = false;
         seekBar.max = audioBuffer.duration;
-        let currentTime = pausedAt;
-        if (isPlaying && source && audioCtx) {
-            currentTime = pausedAt + (audioCtx.currentTime - source.startedTime);
-            currentTime = Math.min(audioBuffer.duration, Math.max(0, currentTime));
-        }
+        const currentTime = getPreviewTime();
         seekBar.value = currentTime;
         timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(audioBuffer.duration)}`;
     }
 
-    // 进度条拖动/点击处理
     function onSeekInput() {
         if (!audioBuffer) return;
         const newTime = parseFloat(seekBar.value);
         if (isPlaying && source) {
-            // 正在播放：停止当前源，重新从新位置播放
             source.stop();
             source = null;
             pausedAt = newTime;
@@ -419,7 +863,6 @@
         }
     }
     seekBar.addEventListener('input', onSeekInput);
-    // 更改时也更新（兼容点击）
     seekBar.addEventListener('change', updateSeekUI);
 
     function updateNormWeights(count) {
@@ -475,18 +918,14 @@
             values.push(shaped/255);
         }
 
-        const glow = glowCheck.checked;
-        if(glow) { ctx.shadowBlur = 8; ctx.shadowColor = `rgba(255,200,80,0.6)`; }
-        else ctx.shadowBlur = 0;
-
         if(currentShape === 'bar') drawBarSpectrum(values, w, h);
         else if(currentShape === 'curve') drawCurveSpectrum(values, w, h);
-        ctx.shadowBlur = 0;
+
+        drawLyrics(ctx, w, h, getPreviewTime());
     }
 
     function drawBarSpectrum(values, w, h) {
         const barW = w / barCount;
-        const isPeakOn = peakCheck.checked;
         for(let i=0; i<barCount; i++) {
             let percent = values[i];
             let barH = percent * (h - 28);
@@ -502,13 +941,6 @@
                 ctx.fillStyle = color; ctx.globalAlpha = innerOpacity; ctx.fillRect(x, y, Math.max(1.5, barW-1.2), barH);
                 ctx.globalAlpha = 1.0; ctx.strokeStyle = color; ctx.lineWidth = borderWidth;
                 ctx.strokeRect(x + borderWidth/2, y + borderWidth/2, Math.max(0, barW-1.2 - borderWidth), Math.max(0, barH - borderWidth));
-            }
-            if(isPeakOn) {
-                if(percent > peakHeights[i]) peakHeights[i] = percent;
-                else peakHeights[i] *= 0.94;
-                let peakY = h - peakHeights[i] * (h - 28);
-                ctx.fillStyle = "#ffffb0";
-                ctx.fillRect(x, peakY-2, Math.max(2, barW-1.2), 3);
             }
         }
     }
@@ -548,16 +980,6 @@
         ctx.strokeStyle = grad;
         ctx.lineWidth = borderWidth;
         if(currentStyle !== 'solid') ctx.stroke();
-
-        if(peakCheck.checked) {
-            for(let i=0; i<points.length; i++) {
-                if(points[i].val > peakHeights[i]) peakHeights[i] = points[i].val;
-                else peakHeights[i] *= 0.94;
-                let peakY = h - 20 - peakHeights[i] * (h - 50);
-                ctx.fillStyle = "#ffffb0";
-                ctx.beginPath(); ctx.arc(points[i].x, peakY, 4, 0, 2*Math.PI); ctx.fill();
-            }
-        }
     }
 
     function animatePreview() {
@@ -570,11 +992,14 @@
         frame();
     }
 
-    // 音频加载
     async function loadAudio(file) {
         if(!file) return;
         fileInfo.dataset.original = 'loading';
         fileInfo.textContent = t('loading') + ' ' + file.name;
+        
+        // 加载元数据
+        loadAudioMetadata(file);
+
         if(audioCtx && audioCtx.state !== 'closed') await audioCtx.close();
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const buf = await file.arrayBuffer();
@@ -587,6 +1012,9 @@
         stopAudio();
         pausedAt = 0;
         updateSeekUI();
+        if (lyricsRawText) {
+            lyrics = parseLyrics(lyricsRawText, lyricsRawName, audioBuffer.duration);
+        }
         drawSpectrum();
     }
 
@@ -602,7 +1030,6 @@
         if(analyser) {
             let fft = Math.max(64, Math.pow(2, Math.ceil(Math.log2(barCount*2))));
             analyser.fftSize = fft;
-            peakHeights = new Array(barCount).fill(0);
         }
         updateNormWeights(barCount);
         drawSpectrum();
@@ -675,8 +1102,59 @@
         opt.classList.add('active'); currentAudioMode = opt.dataset.mode;
     }));
 
-    // 视频生成 (不变)
+    lyricsFileBtn.addEventListener('click', () => lyricsFileInput.click());
+    lyricsFileInput.addEventListener('change', async e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        lyricsRawText = await file.text();
+        lyricsRawName = file.name;
+        const dur = audioBuffer ? audioBuffer.duration : 0;
+        lyrics = parseLyrics(lyricsRawText, lyricsRawName, dur);
+        if (lyrics.length) {
+            lyricsFileName.textContent = t('lyrics_loaded', { name: file.name, count: lyrics.length });
+        } else {
+            lyricsFileName.textContent = file.name + ' ' + t('lyrics_empty');
+        }
+        drawSpectrum();
+    });
+
+    lyricFontSelect.addEventListener('change', e => {
+        lyricCfg.fontFamily = fontFamilies[e.target.value];
+        drawSpectrum();
+    });
+
+    lyricSizeSlider.addEventListener('input', e => {
+        lyricCfg.scale = +e.target.value / 100;
+        lyricSizeVal.textContent = e.target.value;
+        drawSpectrum();
+    });
+    lyricPosSelect.addEventListener('change', e => {
+        lyricCfg.position = e.target.value;
+        drawSpectrum();
+    });
+    lyricActiveColor.addEventListener('input', e => {
+        lyricCfg.activeColor = e.target.value;
+        drawSpectrum();
+    });
+    lyricStrokeColor.addEventListener('input', e => {
+        lyricCfg.strokeColor = e.target.value;
+        drawSpectrum();
+    });
+
     let recordedBlob = null, isRecordingActive = false, recAnim = null;
+    let mimeType = 'video/webm';
+    if (typeof MediaRecorder !== 'undefined') {
+        if (!MediaRecorder.isTypeSupported('video/webm')) {
+            if (MediaRecorder.isTypeSupported('video/mp4')) {
+                mimeType = 'video/mp4';
+            } else if (MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')) {
+                mimeType = 'video/mp4;codecs=avc1';
+            } else {
+                mimeType = 'video/webm';
+            }
+        }
+    }
+
     async function generateFullVideo() {
         if(!audioBuffer){ progressStatus.dataset.original='no_audio_error'; progressStatus.textContent=t('no_audio_error'); return; }
         if(isPlaying) pauseAudio();
@@ -684,6 +1162,11 @@
         recordedBlob = null;
         progressFill.style.width = "0%";
         progressStatus.dataset.original='init_engine'; progressStatus.textContent=t('init_engine');
+
+        if (document.fonts && document.fonts.ready) {
+            try { await document.fonts.ready; } catch(e) {}
+        }
+
         const durationSec = audioBuffer.duration;
         const [outW, outH] = resolutionSelect.value.split('x').map(Number);
         const offCanvas = document.createElement('canvas');
@@ -700,19 +1183,25 @@
         if(currentAudioMode === 'monitor') bufferSrc.connect(recordCtx.destination);
         bufferSrc.start(0);
         await recordCtx.resume();
+        
         const canvasStream = offCanvas.captureStream(30);
         const audioStream = dest.stream;
         const combinedStream = new MediaStream();
         canvasStream.getVideoTracks().forEach(t => combinedStream.addTrack(t));
         audioStream.getAudioTracks().forEach(t => combinedStream.addTrack(t));
-        const mediaRec = new MediaRecorder(combinedStream, { mimeType: 'video/webm' });
+        
+        const mediaRec = new MediaRecorder(combinedStream, { mimeType: mimeType });
         let chunks = [];
         mediaRec.ondataavailable = e => { if(e.data.size) chunks.push(e.data); };
         mediaRec.onstop = () => {
-            recordedBlob = new Blob(chunks, { type: 'video/webm' });
+            recordedBlob = new Blob(chunks, { type: mimeType });
             progressStatus.dataset.original='complete'; progressStatus.textContent=t('complete');
             progressFill.style.width = "100%";
             downloadContainer.style.display = "block";
+            
+            const ext = mimeType.includes('mp4') ? 'MP4' : 'WEBM';
+            downloadBtn.textContent = currentLang === 'zh' ? `⬇️ 下载视频 (${ext})` : `⬇️ Download Video (${ext})`;
+            
             bufferSrc.stop(); recordCtx.close(); isRecordingActive=false;
             if(recAnim) cancelAnimationFrame(recAnim);
         };
@@ -748,26 +1237,148 @@
                 for(let i=0;i<pts.length-1;i++){ let xc=(pts[i].x+pts[i+1].x)/2, yc=(pts[i].y+pts[i+1].y)/2; offCtx.quadraticCurveTo(pts[i].x,pts[i].y,xc,yc); }
                 offCtx.lineTo(pts[pts.length-1].x,outH-15); offCtx.lineTo(0,outH-15); offCtx.fillStyle = `rgba(255,255,255,0.3)`; offCtx.fill();
             }
+            drawLyrics(offCtx, outW, outH, now / 1000);
             recAnim = requestAnimationFrame(renderFrame);
         }
         renderFrame();
         setTimeout(()=>{ if(mediaRec.state === 'recording') mediaRec.stop(); }, totalMs+500);
     }
     generateBtn.addEventListener('click', generateFullVideo);
+    
     downloadBtn.addEventListener('click', ()=>{
-        if(recordedBlob) { let url = URL.createObjectURL(recordedBlob); let a = document.createElement('a'); a.href = url; a.download = `spectrum_${Date.now()}.webm`; a.click(); URL.revokeObjectURL(url); progressStatus.dataset.original='download_started'; progressStatus.textContent=t('download_started'); }
-        else { progressStatus.dataset.original='please_generate'; progressStatus.textContent=t('please_generate'); }
+        if(recordedBlob) { 
+            let url = URL.createObjectURL(recordedBlob); 
+            let a = document.createElement('a'); 
+            a.href = url; 
+            const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+            a.download = `spectrum_${Date.now()}.${ext}`; 
+            a.click(); 
+            URL.revokeObjectURL(url); 
+            progressStatus.dataset.original='download_started'; 
+            progressStatus.textContent=t('download_started'); 
+        }
+        else { 
+            progressStatus.dataset.original='please_generate'; 
+            progressStatus.textContent=t('please_generate'); 
+        }
     });
 
     langToggle.addEventListener('click', switchLanguage);
 
+    /* ★ Pixabay 壁纸幻灯片：每 7 秒渐变切换
+       图源对应 https://pixabay.com/zh/photos/search/风景壁纸/?orientation=horizontal（官方 API，横向照片）
+       填入 PIXABAY_API_KEY 后自动切换为 Pixabay 图源；未填或请求失败时回退到内置必应壁纸 */
+    const PIXABAY_API_KEY = '21106422-1cb6b92b5a8e1d7fbbeee6abb';   /* Pixabay API Key */
+
+    /* 兜底：内置近 15 天必应官方壁纸（已逐张验证可加载） */
+    const fallbackWallpapers = [
+        'https://www.bing.com/th?id=OHR.DakotaBison_ZH-CN2302503868_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp',
+        'https://www.bing.com/th?id=OHR.PipiwaiTrail_ZH-CN1811194311_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp',
+        'https://www.bing.com/th?id=OHR.StileCrossing_ZH-CN9811465935_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp',
+        'https://www.bing.com/th?id=OHR.AutumnChina_ZH-CN7665959692_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp',
+        'https://www.bing.com/th?id=OHR.AlpineBraies_ZH-CN7307997866_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp',
+        'https://www.bing.com/th?id=OHR.HudsonBear_ZH-CN6630706907_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp',
+        'https://www.bing.com/th?id=OHR.SchwarzwaldAutumn_ZH-CN6323627599_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp',
+        'https://www.bing.com/th?id=OHR.FrankfurtHalloween_ZH-CN5998782698_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp',
+        'https://www.bing.com/th?id=OHR.AutumnCranes_ZH-CN5772055404_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp',
+        'https://www.bing.com/th?id=OHR.AveburyStones_ZH-CN9127100951_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp',
+        'https://www.bing.com/th?id=OHR.KuneticeCastle_ZH-CN8895858920_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp',
+        'https://www.bing.com/th?id=OHR.PondCypress_ZH-CN9472607734_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp',
+        'https://www.bing.com/th?id=OHR.SitovoWaterfall_ZH-CN8495214046_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp',
+        'https://www.bing.com/th?id=OHR.MaligneFest_ZH-CN8343066766_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp',
+        'https://www.bing.com/th?id=OHR.PortugueseLibrary_ZH-CN7096893027_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp'
+    ];
+    const wallpapers = [...fallbackWallpapers];
+    const slideshowEl = document.getElementById('previewSlideshow');
+    const slideLayers = slideshowEl ? Array.from(slideshowEl.querySelectorAll('.slide')) : [];
+    const SLIDE_INTERVAL = 7000;
+    let slideCursor = 0, slideLayer = 0, slideTimer = null, slideshowOn = false;
+
+    function crossfadeTo(url) {
+        if (slideLayers.length < 2 || !url) return;
+        const incoming = slideLayers[1 - slideLayer];
+        const outgoing = slideLayers[slideLayer];
+        const img = new Image();
+        img.onload = () => {
+            incoming.style.backgroundImage = `url("${url}")`;
+            incoming.classList.add('active');
+            outgoing.classList.remove('active');
+            slideLayer = 1 - slideLayer;
+        };
+        img.src = url;
+    }
+
+    function nextSlide() {
+        if (!slideshowOn || !wallpapers.length) return;
+        crossfadeTo(wallpapers[slideCursor % wallpapers.length]);
+        slideCursor++;
+    }
+
+    /* 从 Pixabay 官方 API 拉取横版风景照片（洗牌后作为轮播图源，失败则保留必应兜底） */
+    async function loadPixabayWallpapers() {
+        if (!PIXABAY_API_KEY) return false;
+        for (const q of ['风景壁纸', 'landscape']) {
+            try {
+                const url = `https://pixabay.com/api/?key=${PIXABAY_API_KEY}&q=${encodeURIComponent(q)}&image_type=photo&orientation=horizontal&safesearch=true&per_page=100`;
+                const r = await fetch(url, { cache: 'no-store' });
+                if (!r.ok) continue;
+                const d = await r.json();
+                const urls = (d.hits || []).map(x => x.largeImageURL || x.webformatURL).filter(Boolean);
+                if (urls.length < 3) continue;
+                for (let i = urls.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [urls[i], urls[j]] = [urls[j], urls[i]]; }
+                wallpapers.length = 0;
+                wallpapers.push(...urls);
+                slideCursor = 0;
+                nextSlide();
+                return true;
+            } catch (e) { /* 换下一个关键词 */ }
+        }
+        return false;
+    }
+
+    function startSlideshow() {
+        if (slideshowOn || slideLayers.length < 2) return;
+        slideshowOn = true;
+        nextSlide();
+        clearInterval(slideTimer);
+        slideTimer = setInterval(nextSlide, SLIDE_INTERVAL);
+    }
+
+    function stopSlideshow() {
+        slideshowOn = false;
+        clearInterval(slideTimer);
+        slideTimer = null;
+        slideLayers.forEach(l => l.classList.remove('active'));
+    }
+
     let isDark = false;
     document.body.classList.remove('dark');
+
+    /* ★ 全屏动态渐变开关（仅明亮主题可用） */
+    const gradientToggle = document.getElementById('gradientToggle');
+    let gradientFull = true;
+
+    function applyGradientMode() {
+        const dark = document.body.classList.contains('dark');
+        document.body.classList.toggle('gradient-full', gradientFull);
+        gradientToggle.classList.toggle('on', gradientFull);
+        gradientToggle.classList.toggle('disabled', dark);
+        gradientToggle.title = dark ? t('gradient_disabled') : t('gradient_enabled');
+    }
+
+    gradientToggle.addEventListener('click', () => {
+        if (isDark) return;
+        gradientFull = !gradientFull;
+        applyGradientMode();
+    });
+
     themeToggle.addEventListener('click', () => {
         isDark = !isDark;
         document.body.classList.toggle('dark', isDark);
         updateAllTexts();
         drawSpectrum();
+        applyGradientMode();
+        startSlideshow();
     });
 
     canvas.width = 900; canvas.height = 340;
@@ -776,6 +1387,9 @@
     drawSpectrum();
     updateAllTexts();
     updateSeekUI();
+    applyGradientMode();
+    startSlideshow();
+    loadPixabayWallpapers();
 })();
 </script>
 </body>
